@@ -1,0 +1,38 @@
+{
+   "action": {
+      "default_icon": {
+         "128": "images/logo-128.png",
+         "16": "images/logo-16.png",
+         "32": "images/logo-32.png",
+         "48": "images/logo-48.png"
+      },
+      "default_popup": "popup.html"
+   },
+   "background": {
+      "service_worker": "background/service-worker.js"
+   },
+   "content_scripts": [ {
+      "js": [ "observers/googleMeetObserver.js", "observers/zoomObserver.js", "observers/teamsObserver.js", "observers/streamyardObserver.js", "observers/riversideObserver.js", "observers/jitsiObserver.js", "contentScript.js" ],
+      "matches": [ "https://meet.google.com/*", "https://app.zoom.us/*", "https://teams.microsoft.com/*", "https://teams.microsoft.com.mcas.ms/*", "https://streamyard.com/*", "https://riverside.fm/*", "https://meet.jit.si/*" ],
+      "run_at": "document_start"
+   } ],
+   "description": "Control Google Meet, Zoom, Microsoft Teams, Jitsi, Riverside, and more with MuteDeck. Also get the app from https://mutedeck.com",
+   "host_permissions": [ "https://meet.google.com/*", "https://app.zoom.us/*", "https://teams.microsoft.com/*", "https://teams.microsoft.com.mcas.ms/*", "https://streamyard.com/*", "https://riverside.fm/*", "https://meet.jit.si/*" ],
+   "icons": {
+      "128": "images/logo-128.png",
+      "16": "images/logo-16.png",
+      "32": "images/logo-32.png",
+      "48": "images/logo-48.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAg/JyoOnEHjO/CyIj/Gimj0pSxCZQqCW8Y9jqsWDUegxXaQISM5bGJwou6SVL5uL3CZ9xlYK0iSMOsFZYorSpBJbecurgathUcUhKlKJrcjVv58vba3D2l+tl487dKA+dSCxfLsUBK+jmhuwcXljI75thA0etgLPMDJb2WP6loJLRjiaSdWuBvNKDDXM79awN/qR59JIZ1UHkz8OmF6BNKHgTFO5Io3ZD5F/eCa5GTA1A1jO9s/SjhyH+uclXr/jy9MMVLPi5Efy5WfMQjmXsf3iItbWSyn720yyRBxgTDmFDasVzWUYcsyXQCxGHLsODoPc/YBX7R5u5PGANppdIHwIDAQAB",
+   "manifest_version": 3,
+   "name": "MuteDeck",
+   "optional_host_permissions": [ "https://*/*", "http://*/*" ],
+   "options_ui": {
+      "open_in_tab": false,
+      "page": "options.html"
+   },
+   "permissions": [ "storage", "activeTab", "tabs", "scripting" ],
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "5.0.1"
+}
