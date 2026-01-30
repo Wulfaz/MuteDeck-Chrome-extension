@@ -1,3 +1,4 @@
+
 class JitsiObserver {
   constructor() {
     this._timer = null;
@@ -19,7 +20,6 @@ class JitsiObserver {
     }
 
     console.log('Initializing JitsiObserver');
-
     this._observer = new MutationObserver(this._handleElementChange);
     this._observer.observe(document.body, {
       childList: true,
@@ -111,7 +111,9 @@ class JitsiObserver {
       };
       window.addEventListener('message', this._stateMessageListener);
     }
-  }; _handleStateUpdate = (statusFromState) => {
+  };
+
+  _handleStateUpdate = (statusFromState) => {
     let changed = false;
 
     if (statusFromState.hasData) {
@@ -349,7 +351,6 @@ class JitsiObserver {
     if (!this.isInMeeting) {
       return;
     }
-
     const message = {
       'source': 'browser-extension-plugin',
       'action': 'update-status',
@@ -360,7 +361,6 @@ class JitsiObserver {
       'record': this.isRecordStarted ? 'started' : 'stopped',
       'control': 'jitsi',
     };
-
     //console.log('Jitsi status:', message);
     chrome.runtime.sendMessage({ action: "updateMuteDeckStatus", message: message });
   };

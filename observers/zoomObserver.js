@@ -22,7 +22,6 @@ class ZoomObserver {
 
     console.log('Initializing ZoomObserver');
     this._observer = new MutationObserver(this._handleElementChange);
-    // listen for SVG class changes
     this._observer.observe(document.body, {
       childList: false,
       attributes: true,
@@ -51,7 +50,6 @@ class ZoomObserver {
   };
 
   updateZoomStatus = () => {
-    // console.log('Updating Zoom status');
     let changed = false;
 
     // Get the iframe element
@@ -98,7 +96,6 @@ class ZoomObserver {
         }
         this.isMuted = false;
       }
-
 
       // find the button that contains the svg with a class called SvgVideoOn or SvgVideoOnHovered
       let svgVideoOn = iframeDocument.querySelector('svg[class^="SvgVideoOn"]');
@@ -158,7 +155,6 @@ class ZoomObserver {
       this._updateLoops++;
     }
   }
-
 
   /**
    * Actions
@@ -244,9 +240,7 @@ class ZoomObserver {
       'record': this.isRecordStarted ? 'started' : 'stopped',
       'control': 'zoom-web',
     };
-    console.log(message);
-    //mutedeckConnection.sendMessage(message);
-
+    //console.log(message);
     // Send a message to the background script to send data over the WebSocket
     chrome.runtime.sendMessage({ action: "updateMuteDeckStatus", message: message });
   }

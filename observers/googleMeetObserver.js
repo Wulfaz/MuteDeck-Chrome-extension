@@ -19,6 +19,7 @@ class GoogleMeetObserver {
       return;
     }
 
+    console.log('Initializing GoogleMeetObserver');
     this._observer = new MutationObserver(this._handleElementChange);
     this._observer.observe(document.body, {
       childList: false,
@@ -40,16 +41,19 @@ class GoogleMeetObserver {
 
     // check if the meeting info icon is on the canvas. if yes, then we're in a meeting.
     let meetingInfo = document.querySelector('button[jsname="A5il2e"]');
-    if (meetingInfo) {
+    // check if the meeting mute button is on the canvas. if not, then we're in Companion mode.
+    let muteButton = document.querySelector('button[jsname="hw0c9"]');
+    if (meetingInfo && muteButton) {
       if (!this.isInMeeting) {
         changed = true;
       }
       this.isInMeeting = true;
 
-      const buttons = document.querySelectorAll('button[data-is-muted]');
+      // const buttons = document.querySelectorAll('button[data-is-muted]');
 
-      const muteButton = buttons[0] || null;
-      const videoButton = buttons[1] || null;
+      // const muteButton = buttons[0] || null;
+      // const videoButton = buttons[1] || null;
+      let videoButton = document.querySelector('button[jsname="psRWwc"]');
 
       if (muteButton) {
         if (this.isMuted !== Boolean(muteButton.getAttribute("data-is-muted") === 'true')) {
@@ -103,10 +107,14 @@ class GoogleMeetObserver {
     }
   }
 
+  /**
+   * Actions
+   */
 
   toggleMute = () => {
-    const buttons = document.querySelectorAll('button[data-is-muted]');
-    const muteButton = buttons[0] || null;
+    // const buttons = document.querySelectorAll('button[data-is-muted]');
+    // const muteButton = buttons[0] || null;
+    let muteButton = document.querySelector('button[jsname="hw0c9"]');
     if (muteButton) {
       console.log('Clicking mute button');
       muteButton.click();
@@ -117,8 +125,9 @@ class GoogleMeetObserver {
   }
 
   toggleVideo = () => {
-    const buttons = document.querySelectorAll('button[data-is-muted]');
-    const videoButton = buttons[1] || null;
+    // const buttons = document.querySelectorAll('button[data-is-muted]');
+    // const videoButton = buttons[1] || null;
+    let videoButton = document.querySelector('button[jsname="psRWwc"]');
     if (videoButton) {
       console.log('Clicking video button');
       videoButton.click();
@@ -128,6 +137,7 @@ class GoogleMeetObserver {
     }
   }
 
+  /** Presenting functions */
   _pressStopPresenting = () => {
     let stopButton = document.querySelector('li:has(svg path[d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12z"])');
     if (stopButton) {
@@ -214,6 +224,7 @@ class GoogleMeetObserver {
     }
   }
 
+  /** Leaving functions */
   _pressPossibleConfirmationButton = () => {
     let readyButton = document.querySelector('button[data-mdc-dialog-action="Pd96ce"]');
     if (readyButton) {

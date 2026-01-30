@@ -21,7 +21,6 @@ class TeamsObserver {
 
     console.log('Initializing TeamsObserver');
     this._observer = new MutationObserver(this._handleElementChange);
-    // listen for SVG class changes
     this._observer.observe(document.body, {
       childList: false,
       attributes: true,
@@ -37,9 +36,7 @@ class TeamsObserver {
     this.updateTeamsStatus();
   };
 
-
   updateTeamsStatus = () => {
-    //console.log('Updating Teams status');
     let changed = false;
 
     // use the leave button to see if we're in a meeting
@@ -127,7 +124,6 @@ class TeamsObserver {
           this.isShareStarted = false;
         }
       }
-
     } // end if this.isInMeeting
 
     // send meeting status if it has been updated, or if it's been 1 second (250ms * 4) since the last update
@@ -138,7 +134,6 @@ class TeamsObserver {
       this._updateLoops++;
     }
   }
-
 
   /**
    * Actions
@@ -168,20 +163,6 @@ class TeamsObserver {
     buttonLeave.click();
   }
 
-  _pressPossibleConfirmationButton = () => {
-    // Get the iframe element
-    let iframeDocument = this._getZoomCallFrame();
-    if (!iframeDocument) {
-      return;
-    }
-
-    let confirmationButton = iframeDocument.querySelector('button.leave-meeting-options__btn');
-    if (confirmationButton) {
-      console.log('Clicking confirmation button');
-      confirmationButton.click();
-    }
-  }
-
   sendTeamsStatus = () => {
     if (!this.isInMeeting) {
       return;
@@ -196,7 +177,7 @@ class TeamsObserver {
       'record': this.isRecordStarted ? 'started' : 'stopped',
       'control': 'teams-web',
     };
-    console.log(message);
+    // console.log(message);
     chrome.runtime.sendMessage({ action: "updateMuteDeckStatus", message: message });
   }
 }

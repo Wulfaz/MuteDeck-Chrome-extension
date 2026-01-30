@@ -7,7 +7,8 @@ chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
     'teams.microsoft.com',
     'streamyard.com',
     'riverside.fm',
-    'meet.jit.si'
+    'meet.jit.si',
+    'app.v2.gather.town'
   ];
 
   // Get custom sites from storage
@@ -32,7 +33,7 @@ chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
     const warningElement = document.getElementById('access-warning');
     warningElement.innerHTML = `
       <p>MuteDeck only has access to meeting websites.</p>
-      <small>Default sites: meet.google.com, app.zoom.us, teams.microsoft.com, streamyard.com, riverside.fm, meet.jit.si</small>
+      <small>Default sites: meet.google.com, app.zoom.us, teams.microsoft.com, streamyard.com, riverside.fm, meet.jit.si, app.v2.gather.town</small>
       <br /><br />
       <small>To add custom meeting sites (like branded Jitsi instances), go to <a href="#" id="open-options">the extension options.</a></small>
     `;
@@ -66,11 +67,13 @@ chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
         callTypeAndStatus = 'In Riverside session';
       } else if (response.isJitsiCall) {
         callTypeAndStatus = 'In Jitsi Meet call';
+      } else if (response.isGatherCall) {
+        callTypeAndStatus = 'In Gather meeting';
       } else {
         callTypeAndStatus = 'In call';
       }
     }
-    document.getElementById('google-meet-call').innerText = callTypeAndStatus;
+    document.getElementById('call-status').innerText = callTypeAndStatus;
     document.getElementById('mute-status').innerText = (response.isMuted ? 'Muted' : 'Unmuted');
     document.getElementById('camera-status').innerText = (response.isVideoStarted ? 'Camera on' : 'Camera off');
     document.getElementById('share-status').innerText = (response.isShareStarted ? 'Sharing' : 'Not sharing');

@@ -78,7 +78,7 @@ class MuteDeckConnection {
       this._isMuteDeckConnected = true;
       this._MuteDeckConnectionError = "";
 
-      // identify as a google meet plugin, so MD can send messages back
+      // identify as a google meet plugin, so MuteDeck can send messages back
       const identify = {
         'source': 'browser-extension-plugin',
         'action': 'identify'

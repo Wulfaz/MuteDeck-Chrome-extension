@@ -7,7 +7,8 @@ class CustomSitesManager {
       'https://teams.microsoft.com*',
       'https://streamyard.com/*',
       'https://riverside.fm/*',
-      'https://meet.jit.si/*'
+      'https://meet.jit.si/*',
+      'https://app.v2.gather.town/*'
     ];
     this.init();
   }
@@ -15,6 +16,7 @@ class CustomSitesManager {
   init() {
     this.loadCustomSites();
     document.getElementById('add-site').addEventListener('click', () => this.addSite());
+    document.getElementById('remove-all').addEventListener('click', () => this.removeAllSites());
     document.getElementById('new-site-url').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') this.addSite();
     });
@@ -135,6 +137,29 @@ class CustomSitesManager {
       // Notify background script
       chrome.runtime.sendMessage({ action: 'updateContentScripts' });
     }
+  }
+
+  async removeAllSites() {
+    const { customSites = [] } = await chrome.storage.sync.get('customSites');
+    if (customSites.length === 0) {
+      this.showStatus('No custom sites to remove', 'warning');
+      return;
+    }
+
+    // Remove permissions
+    for (const site of customSites) {
+      if (site.hasPermission) {
+        await chrome.permissions.remove({ origins: [site.url] });
+      }
+    }
+
+    // Remove from storage
+    await chrome.storage.sync.set({ customSites: [] });
+    this.loadCustomSites();
+    this.showStatus('All custom sites removed', 'success');
+
+    // Notify background script
+    chrome.runtime.sendMessage({ action: 'updateContentScripts' });
   }
 
   async requestPermission(url, index) {

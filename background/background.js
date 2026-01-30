@@ -59,6 +59,7 @@ async function updateContentScriptRegistrations() {
             'observers/streamyardObserver.js',
             'observers/riversideObserver.js',
             'observers/jitsiObserver.js',
+            'observers/gatherObserver.js',
             'contentScript.js'
           ],
           runAt: 'document_start',
@@ -96,6 +97,7 @@ function sendMessageToContentScript(action, message = {}) {
         tab.url.includes('streamyard.com') ||
         tab.url.includes('riverside.fm') ||
         tab.url.includes('meet.jit.si') ||
+        tab.url.includes('app.v2.gather.town') ||
         customUrls.some(host => tab.url.includes(host))
       )) {
         chrome.tabs.sendMessage(tab.id, { action: action, data: message }).catch(onError);
@@ -139,13 +141,15 @@ function sendCustomAction(shortcut) {
 }
 
 function bringToFront() {
+  // SVG usable within MuteDeck app: zoom.svg, teams.svg, webex.svg, google-meet.svg, streamyard.svg, riverside.svg, lifesize.svg, discord.svg
   const urlMappings = [
     { url: 'meet.google.com', control: 'google-meet' },
     { url: 'app.zoom.us', control: 'zoom-web' },
     { url: 'teams.microsoft.com', control: 'teams-web' },
     { url: 'streamyard.com', control: 'streamyard' },
     { url: 'riverside.fm', control: 'riverside' },
-    { url: 'meet.jit.si', control: 'jitsi' }
+    { url: 'meet.jit.si', control: 'jitsi' },
+    { url: 'app.v2.gather.town', control: 'zoom-web' } // /!\ 'zoom-web' is used here because it's the one in use in GatherObserver.sendGatherStatus()
   ];
 
   chrome.tabs.query({}).then(async function (tabs) {
@@ -171,7 +175,7 @@ function bringToFront() {
       chrome.windows.update(meetTab.windowId, {
         focused: true,
         // Only Google Meet needs drawAttention
-        drawAttention: currentMeetingStatus?.control === 'google-meet'
+        drawAttention: true //currentMeetingStatus?.control === 'google-meet'
       });
     } else {
       console.log('No call tab found');
@@ -317,5 +321,3 @@ chrome.runtime.onMessage.addListener(async function (message, sender, sendRespon
   }
   return true;
 });
-
-

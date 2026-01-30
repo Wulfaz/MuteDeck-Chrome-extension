@@ -1,51 +1,56 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>MuteDeck</title>
-    <style>
-      body {
-        min-width: 250px;
-      }
-      #status-container {
-        margin-top: 20px;
-      }
-    </style>
-    <script src="popup.js"></script>
-  </head>
 
-  <body>
-    <div id="connection"></div>
-    <div id="ssl_accept_warning"></div>
-    <div id="status-container">
-      <b>Status</b>
-      <table>
-        <tr>
-          <td>Call status:</td>
-          <td id="google-meet-call"></td>
-        </tr>
-        <tr>
-          <td>Mute status:</td>
-          <td id="mute-status"></td>
-        </td>
-        <tr>
-          <td>Camera status:</td>
-          <td id="camera-status"></td>
-        </td>
-        <tr>
-          <td>Share status:</td>
-          <td id="share-status"></td>
-        </td>
-        <tr>
-          <td>Recording status:</td>
-          <td id="recording-status"></td>
-        </td>
-      </table>
-    </div>
-    <div id="access-warning" style="display:none">
-      <p>MuteDeck only has access to meeting websites.</p>
-      <small>Default sites: meet.google.com, app.zoom.us, teams.microsoft.com, streamyard.com, riverside.fm, meet.jit.si</small>
-      <br /><br />
-      <small>To add custom meeting sites (like branded Jitsi instances), <a href="#" id="open-options">click here to open extension options</a>.</small>
-    </div>
-  </body>
+<head>
+  <title>MuteDeck</title>
+  <style>
+    body {
+      min-width: 250px;
+    }
+
+    #status-container {
+      margin-top: 20px;
+    }
+  </style>
+  <script src="popup.js"></script>
+</head>
+
+<body>
+  <div id="connection"></div>
+  <div id="ssl_accept_warning"></div>
+  <div id="status-container">
+    <b>Status</b>
+    <table>
+      <tr>
+        <td>Call status:</td>
+        <td id="call-status"></td>
+      </tr>
+      <tr>
+        <td>Mute status:</td>
+        <td id="mute-status"></td>
+      </tr>
+      <tr>
+        <td>Camera status:</td>
+        <td id="camera-status"></td>
+      </tr>
+      <tr>
+        <td>Share status:</td>
+        <td id="share-status"></td>
+      </tr>
+      <tr>
+        <td>Recording status:</td>
+        <td id="recording-status"></td>
+      </tr>
+    </table>
+  </div>
+  <div id="access-warning" style="display:none">
+    <p>MuteDeck only has access to meeting websites.</p>
+    <small>Default sites: meet.google.com, app.zoom.us, teams.microsoft.com, streamyard.com, riverside.fm, meet.jit.si,
+      app.v2.gather.town</small>
+    <br /><br />
+    <small>To add custom meeting sites (like branded Jitsi instances), <a href="#" id="open-options">click here to open
+        extension options</a>.</small>
+  </div>
+</body>
+
 </html>

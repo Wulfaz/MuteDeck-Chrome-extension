@@ -21,7 +21,6 @@ class StreamyardObserver {
 
     console.log('Initializing StreamyardObserver');
     this._observer = new MutationObserver(this._handleElementChange);
-    // listen for SVG class changes
     this._observer.observe(document.body, {
       childList: false,
       attributes: true,
@@ -37,9 +36,7 @@ class StreamyardObserver {
     this.updateStreamyardStatus();
   };
 
-
   updateStreamyardStatus = () => {
-    //console.log('Updating Streamyard status');
     let changed = false;
 
     // find the mute button
@@ -120,7 +117,6 @@ class StreamyardObserver {
           this.isRecordStarted = false;
         }
       }
-
     } // end if this.isInMeeting
 
     // send meeting status if it has been updated, or if it's been 1 second (250ms * 4) since the last update
@@ -296,7 +292,7 @@ class StreamyardObserver {
       'record': this.isRecordStarted ? 'started' : 'stopped',
       'control': 'streamyard',
     };
-    console.log(message);
+    //console.log(message);
     chrome.runtime.sendMessage({ action: "updateMuteDeckStatus", message: message });
   }
 }

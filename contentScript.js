@@ -11,7 +11,8 @@ const teamsObserver = new TeamsObserver();
 const streamyardObserver = new StreamyardObserver();
 const riversideObserver = new RiversideObserver();
 const jitsiObserver = new JitsiObserver();
-const OBSERVERS = [googleMeetObserver, zoomObserver, teamsObserver, streamyardObserver, riversideObserver, jitsiObserver];
+const gatherObserver = new GatherObserver();
+const OBSERVERS = [googleMeetObserver, zoomObserver, teamsObserver, streamyardObserver, riversideObserver, jitsiObserver, gatherObserver];
 
 const getKeyCode = (key) => {
   const k = key.toLowerCase();
@@ -143,6 +144,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     let isStreamyardCall = streamyardObserver.isInMeeting;
     let isRiversideCall = riversideObserver.isInMeeting;
     let isJitsiCall = jitsiObserver.isInMeeting;
+    let isGatherCall = gatherObserver.isInMeeting;
 
     let response = {
       connection: '',
@@ -159,6 +161,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       isStreamyardCall: isStreamyardCall,
       isRiversideCall: isRiversideCall,
       isJitsiCall: isJitsiCall,
+      isGatherCall: isGatherCall
     };
     if (mutedeckConnectionStatus.isMuteDeckConnected) {
       response.connection = '✅ Connected to MuteDeck';
