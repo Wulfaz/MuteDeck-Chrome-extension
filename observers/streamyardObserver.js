@@ -58,6 +58,9 @@ class StreamyardObserver {
         this.isMuted = true;
         this.isInMeeting = true;
       } else {
+        if (this.isInMeeting) {
+          changed = true;
+        }
         this.isInMeeting = false;
       }
     }
@@ -121,7 +124,8 @@ class StreamyardObserver {
 
     // send meeting status if it has been updated, or if it's been 1 second (250ms * 4) since the last update
     if (changed || this._updateLoops >= 3) {
-      this.sendStreamyardStatus();
+      // force sendStreamyardStatus when leaving a meeting
+      this.sendStreamyardStatus(changed && !this.isInMeeting); // 'was in meeting but no more' -> force send
       this._updateLoops = 0;
     } else {
       this._updateLoops++;
@@ -278,8 +282,9 @@ class StreamyardObserver {
     }
   };
 
-  sendStreamyardStatus = () => {
-    if (!this.isInMeeting) {
+  // use param force to force send the status (after leaving a meeting for example)
+  sendStreamyardStatus = (force = false) => {
+    if (!force && !this.isInMeeting) {
       return;
     }
     const message = {

@@ -149,7 +149,8 @@ class ZoomObserver {
 
     // send meeting status if it has been updated, or if it's been 1 second (250ms * 4) since the last update
     if (changed || this._updateLoops >= 3) {
-      this.sendZoomStatus();
+      // force sendZoomStatus when leaving a meeting
+      this.sendZoomStatus(changed && !this.isInMeeting); // 'was in meeting but no more' -> force send
       this._updateLoops = 0;
     } else {
       this._updateLoops++;
@@ -226,8 +227,9 @@ class ZoomObserver {
     }
   }
 
-  sendZoomStatus = () => {
-    if (!this.isInMeeting) {
+  // use param force to force send the status (after leaving a meeting for example)
+  sendZoomStatus = (force = false) => {
+    if (!force && !this.isInMeeting) {
       return;
     }
     const message = {

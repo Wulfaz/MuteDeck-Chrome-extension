@@ -15,7 +15,7 @@ class GatherObserver {
 
   initialize = () => {
     // detect whether gather.town is the hostname of the page, otherwise do not initialize
-    if (!window.location.hostname.endsWith('gather.town')) {
+    if (!window.location.hostname.endsWith('app.v2.gather.town')) {
       console.log('Not on Gather page, not initializing GatherObserver');
       return;
     }
@@ -55,10 +55,6 @@ class GatherObserver {
           changed = true;
         }
         this.isInExternalMeeting = true;
-        this.isMuted = true;
-        this.isVideoStarted = false;
-        this.isShareStarted = false;
-        this.isRecordStarted = false;
       } else {
         if (this.isInExternalMeeting) {
           changed = true;
@@ -66,77 +62,76 @@ class GatherObserver {
         this.isInExternalMeeting = false;
       }
 
-      if (!this.isInExternalMeeting) {
-        // find the mute button and detect its state
-        let buttonMute = document.querySelector('button[data-testid="toggle-microphone-on-button"], button[data-testid="toggle-microphone-off-button"]');
-        if (buttonMute.getAttribute('data-testid')?.includes('toggle-microphone-off-button')) {
-          if (this.isMuted) {
-            changed = true;
-          }
-          this.isMuted = false;
-        } else if (buttonMute.getAttribute('data-testid')?.includes('toggle-microphone-on-button')) {
-          if (!this.isMuted) {
-            changed = true;
-          }
-          this.isMuted = true;
+      // find the mute button and detect its state
+      let buttonMute = document.querySelector('button[data-testid="toggle-microphone-on-button"], button[data-testid="toggle-microphone-off-button"]');
+      if (buttonMute.getAttribute('data-testid')?.includes('toggle-microphone-off-button')) {
+        if (this.isMuted) {
+          changed = true;
         }
+        this.isMuted = false;
+      } else if (buttonMute.getAttribute('data-testid')?.includes('toggle-microphone-on-button')) {
+        if (!this.isMuted) {
+          changed = true;
+        }
+        this.isMuted = true;
+      }
 
-        // find the video button and detect its state
-        let buttonVideo = document.querySelector('button[data-testid="toggle-camera-on-button"], button[data-testid="toggle-camera-off-button"]');
-        if (buttonVideo.getAttribute('data-testid')?.includes('toggle-camera-off-button')) {
-          if (!this.isVideoStarted) {
-            changed = true;
-          }
-          this.isVideoStarted = true;
-        } else if (buttonVideo.getAttribute('data-testid')?.includes('toggle-camera-on-button')) {
-          if (this.isVideoStarted) {
-            changed = true;
-          }
-          this.isVideoStarted = false;
+      // find the video button and detect its state
+      let buttonVideo = document.querySelector('button[data-testid="toggle-camera-on-button"], button[data-testid="toggle-camera-off-button"]');
+      if (buttonVideo.getAttribute('data-testid')?.includes('toggle-camera-off-button')) {
+        if (!this.isVideoStarted) {
+          changed = true;
         }
+        this.isVideoStarted = true;
+      } else if (buttonVideo.getAttribute('data-testid')?.includes('toggle-camera-on-button')) {
+        if (this.isVideoStarted) {
+          changed = true;
+        }
+        this.isVideoStarted = false;
+      }
 
-        // find the record button and detect its state
-        let buttonRecord = document.querySelector('button[class="u51l8l0 jroftr2 jroftre jroftrg jroftrj"]');
-        let buttonStopRecord = document.querySelector('button[class="u51l8l0 jroftr2 jroftre jroftrg jroftri jroftrr"]');
-        if (buttonStopRecord) {
-          if (!this.isRecordStarted) {
-            changed = true;
-          }
-          this.isRecordStarted = true;
-        } else if (buttonRecord) {
-          if (this.isRecordStarted) {
-            changed = true;
-          }
-          this.isRecordStarted = false;
+      // find the record button and detect its state
+      let buttonRecord = document.querySelector('button[class="u51l8l0 jroftr2 jroftre jroftrg jroftrj"]');
+      let buttonStopRecord = document.querySelector('button[class="u51l8l0 jroftr2 jroftre jroftrg jroftri jroftrr"]');
+      if (buttonStopRecord) {
+        if (!this.isRecordStarted) {
+          changed = true;
         }
+        this.isRecordStarted = true;
+      } else if (buttonRecord) {
+        if (this.isRecordStarted) {
+          changed = true;
+        }
+        this.isRecordStarted = false;
+      }
 
-        // find the share button and detect its state
-        // let buttonShare = document.querySelector('button[data-testid="toggle-screen-share-button"]');
-        if (buttonShare) {
-          if (buttonShare.getAttribute('class')?.includes('jroftrn')) {
-            if (!this.isShareStarted) {
-              changed = true;
-            }
-            this.isShareStarted = true;
-          } else {
-            if (this.isShareStarted) {
-              changed = true;
-            }
-            this.isShareStarted = false;
+      // find the share button and detect its state
+      // let buttonShare = document.querySelector('button[data-testid="toggle-screen-share-button"]');
+      if (buttonShare) {
+        if (buttonShare.getAttribute('class')?.includes('jroftrn')) {
+          if (!this.isShareStarted) {
+            changed = true;
           }
+          this.isShareStarted = true;
+        } else {
+          if (this.isShareStarted) {
+            changed = true;
+          }
+          this.isShareStarted = false;
         }
-      } // end of is in a meeting but not in an external meeting
+      }
+
     } else {
       if (this.isInMeeting) {
         changed = true;
       }
       this.isInMeeting = false;
-      this.isInExternalMeeting = false;
     }
 
     // send meeting status if it has been updated, or if it's been 1 second (250ms * 4) since the last update
     if (changed || this._updateLoops >= 3) {
-      this.sendGatherStatus();
+      // force sendGatherStatus when leaving a meeting
+      this.sendGatherStatus(changed && !this.isInMeeting); // 'was in meeting but no more' -> force send
       this._updateLoops = 0;
     } else {
       this._updateLoops++;
@@ -148,6 +143,10 @@ class GatherObserver {
    */
 
   toggleMute = () => {
+    if (this.isInExternalMeeting) {
+      console.log('Do not toggle mute when in external meeting');
+      return;
+    }
     let buttonMic = document.querySelector('button[data-testid="toggle-microphone-on-button"], button[data-testid="toggle-microphone-off-button"]');
     if (!buttonMic) {
       console.log('Mute button not found');
@@ -157,6 +156,10 @@ class GatherObserver {
   }
 
   toggleVideo = () => {
+    if (this.isInExternalMeeting) {
+      console.log('Do not toggle video when in external meeting');
+      return;
+    }
     let buttonVideo = document.querySelector('button[data-testid="toggle-camera-on-button"], button[data-testid="toggle-camera-off-button"]');
     if (!buttonVideo) {
       console.log('Video button not found');
@@ -166,6 +169,10 @@ class GatherObserver {
   }
 
   toggleShare = () => {
+    if (this.isInExternalMeeting) {
+      console.log('Do not toggle share when in external meeting');
+      return;
+    }
     let buttonShare = document.querySelector('button[data-testid="toggle-screen-share-button"]');
     if (!buttonShare) {
       console.log('Share button not found');
@@ -214,6 +221,10 @@ class GatherObserver {
   }
 
   toggleRecord = () => {
+    if (this.isInExternalMeeting) {
+      console.log('Do not toggle record when in external meeting');
+      return;
+    }
     if (!this.isRecordStarted) {
       let buttonRecord = document.querySelector('button[class="u51l8l0 jroftr2 jroftre jroftrg jroftrj"]');
       if (!buttonRecord) {
@@ -242,8 +253,9 @@ class GatherObserver {
     buttonLeave.click();
   }
 
-  sendGatherStatus = () => {
-    if (!this.isInMeeting) {
+  // use param force to force send the status (after leaving a meeting for example)
+  sendGatherStatus = (force = false) => {
+    if (!force && (!this.isInMeeting || this.isInExternalMeeting)) {
       return;
     }
     const message = {

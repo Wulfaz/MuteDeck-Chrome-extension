@@ -128,7 +128,8 @@ class TeamsObserver {
 
     // send meeting status if it has been updated, or if it's been 1 second (250ms * 4) since the last update
     if (changed || this._updateLoops >= 3) {
-      this.sendTeamsStatus();
+      // force sendTeamsStatus when leaving a meeting
+      this.sendTeamsStatus(changed && !this.isInMeeting); // 'was in meeting but no more' -> force send
       this._updateLoops = 0;
     } else {
       this._updateLoops++;
@@ -163,8 +164,9 @@ class TeamsObserver {
     buttonLeave.click();
   }
 
-  sendTeamsStatus = () => {
-    if (!this.isInMeeting) {
+  // use param force to force send the status (after leaving a meeting for example)
+  sendTeamsStatus = (force = false) => {
+    if (!force && !this.isInMeeting) {
       return;
     }
     const message = {

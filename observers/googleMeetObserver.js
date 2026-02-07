@@ -6,6 +6,7 @@ class GoogleMeetObserver {
     this._updateLoops = 0;
 
     this.isInMeeting = false;
+    this.isInCompanionMode = false;
     this.isMuted = false;
     this.isVideoStarted = false;
     this.isShareStarted = false;
@@ -41,36 +42,36 @@ class GoogleMeetObserver {
 
     // check if the meeting info icon is on the canvas. if yes, then we're in a meeting.
     let meetingInfo = document.querySelector('button[jsname="A5il2e"]');
-    // check if the meeting mute button is on the canvas. if not, then we're in Companion mode.
-    let muteButton = document.querySelector('button[jsname="hw0c9"]');
-    if (meetingInfo && muteButton) {
+    if (meetingInfo) {
       if (!this.isInMeeting) {
         changed = true;
       }
       this.isInMeeting = true;
 
-      // const buttons = document.querySelectorAll('button[data-is-muted]');
-
-      // const muteButton = buttons[0] || null;
-      // const videoButton = buttons[1] || null;
-      let videoButton = document.querySelector('button[jsname="psRWwc"]');
-
+      // check if the meeting mute button is on the canvas. if not, then we're in Companion mode.
+      let muteButton = document.querySelector('button[jsname="hw0c9"]');
       if (muteButton) {
         if (this.isMuted !== Boolean(muteButton.getAttribute("data-is-muted") === 'true')) {
           this.isMuted = Boolean(muteButton.getAttribute("data-is-muted") === 'true');
           changed = true;
         }
+        this.isInCompanionMode = false;
       } else {
-        console.warn('Mic button not found.');
+        console.log('Mic button not found.');
+        if (!this.isInCompanionMode) {
+          changed = true;
+        }
+        this.isInCompanionMode = true;
       }
 
+      let videoButton = document.querySelector('button[jsname="psRWwc"]');
       if (videoButton) {
         if (this.isVideoStarted !== Boolean(videoButton.getAttribute("data-is-muted") === 'false')) {
           this.isVideoStarted = Boolean(videoButton.getAttribute("data-is-muted") === 'false');
           changed = true;
         }
       } else {
-        console.warn('Video button not found.');
+        console.log('Video button not found.');
       }
 
       let currentlySharing = document.querySelector('div[jsname="mLjGHe"] button');
@@ -95,12 +96,16 @@ class GoogleMeetObserver {
       }
 
     } else {
+      if (this.isInMeeting) {
+        changed = true;
+      }
       this.isInMeeting = false;
     }
 
     // send meeting status if it has been updated, or if it's been 1 second (250ms * 4) since the last update
     if (changed || this._updateLoops >= 3) {
-      this.sendGoogleMeetStatus();
+      // force sendGoogleMeetStatus when leaving a meeting
+      this.sendGoogleMeetStatus(changed && !this.isInMeeting); // 'was in meeting but no more' -> force send
       this._updateLoops = 0;
     } else {
       this._updateLoops++;
@@ -112,8 +117,10 @@ class GoogleMeetObserver {
    */
 
   toggleMute = () => {
-    // const buttons = document.querySelectorAll('button[data-is-muted]');
-    // const muteButton = buttons[0] || null;
+    if (this.isInCompanionMode) {
+      console.log('Do not toggle mute when in companion mode');
+      return;
+    }
     let muteButton = document.querySelector('button[jsname="hw0c9"]');
     if (muteButton) {
       console.log('Clicking mute button');
@@ -125,8 +132,10 @@ class GoogleMeetObserver {
   }
 
   toggleVideo = () => {
-    // const buttons = document.querySelectorAll('button[data-is-muted]');
-    // const videoButton = buttons[1] || null;
+    if (this.isInCompanionMode) {
+      console.log('Do not toggle video when in companion mode');
+      return;
+    }
     let videoButton = document.querySelector('button[jsname="psRWwc"]');
     if (videoButton) {
       console.log('Clicking video button');
@@ -150,6 +159,10 @@ class GoogleMeetObserver {
   }
 
   toggleShare = () => {
+    if (this.isInCompanionMode) {
+      console.log('Do not toggle share when in companion mode');
+      return;
+    }
     let currentlySharing = document.querySelector('div[jsname="mLjGHe"] button');
     if (currentlySharing) {
       console.log('Clicking stop sharing button');
@@ -217,6 +230,10 @@ class GoogleMeetObserver {
   }
 
   toggleRecord = () => {
+    if (this.isInCompanionMode) {
+      console.log('Do not toggle record when in companion mode');
+      return;
+    }
     console.log('Toggling recording');
     let moreButtonPressed = this._pressMoreOptionsButton();
     if (moreButtonPressed) {
@@ -245,8 +262,9 @@ class GoogleMeetObserver {
     }
   }
 
-  sendGoogleMeetStatus = () => {
-    if (!this.isInMeeting) {
+  // use param force to force send the status (after leaving a meeting for example)
+  sendGoogleMeetStatus = (force = false) => {
+    if (!force && (!this.isInMeeting || this.isInCompanionMode)) {
       return;
     }
     const message = {

@@ -54,6 +54,11 @@ class RiversideObserver {
         this.isMuted = false;
       }
       this.isInMeeting = true;
+    } else {
+      if (this.isInMeeting) {
+        changed = true;
+      }
+      this.isInMeeting = false;
     }
 
     if (this.isInMeeting) {
@@ -110,7 +115,8 @@ class RiversideObserver {
 
     // send meeting status if it has been updated, or if it's been 1 second (250ms * 4) since the last update
     if (changed || this._updateLoops >= 3) {
-      this.sendRiversideStatus();
+      // force sendRiversideStatus when leaving a meeting
+      this.sendRiversideStatus(changed && !this.isInMeeting); // 'was in meeting but no more' -> force send
       this._updateLoops = 0;
     } else {
       this._updateLoops++;
@@ -210,8 +216,9 @@ class RiversideObserver {
     }, 1000);
   }
 
-  sendRiversideStatus = () => {
-    if (!this.isInMeeting) {
+  // use param force to force send the status (after leaving a meeting for example)
+  sendRiversideStatus = (force = false) => {
+    if (!force && !this.isInMeeting) {
       return;
     }
     const message = {
