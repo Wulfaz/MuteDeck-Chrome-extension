@@ -1,59 +1,115 @@
 
-class JitsiObserver {
-  constructor() {
-    this._timer = null;
-    this._observer = null;
-    this._updateLoops = 0;
-
-    this.isInMeeting = false;
-    this.isMuted = false;
-    this.isVideoStarted = false;
-    this.isShareStarted = false;
-    this.isRecordStarted = false;
-  }
-
-  initialize = () => {
-    // Detect if this is a Jitsi Meet page using multiple methods
-    if (!this._detectJitsiMeet()) {
-      console.log('Not on Jitsi Meet page, not initializing JitsiObserver');
-      return;
-    }
-
-    console.log('Initializing JitsiObserver');
-    this._observer = new MutationObserver(this._handleElementChange);
-    this._observer.observe(document.body, {
-      childList: true,
-      attributes: true,
-      attributeFilter: ["class", "aria-pressed", "data-testid", "aria-label"],
-      attributeOldValue: true,
-      subtree: true,
-    });
-
-    // Start checking for Jitsi Redux store availability
-    this._waitForJitsiStore();
-
-    this._timer = setInterval(this.updateJitsiStatus, 1000);
+class JitsiObserver extends BaseObserver {
+  static SELECTORS = {
+    // Button selectors for actions
+    muteButton: '[data-testid*="microphone"], [aria-label*="microphone" i], [aria-label*="mute" i], [title*="mute" i]',
+    muteButtonAlt: 'button[aria-pressed][aria-label*="audio" i], button[aria-pressed][title*="audio" i]',
+    muteButtonFallback: '.toolbox-button-mute, [class*="mute"], [class*="microphone"]',
+    videoButton: '[data-testid*="camera"], [aria-label*="camera" i], [aria-label*="video" i], [title*="video" i]',
+    videoButtonAlt: 'button[aria-pressed][aria-label*="camera" i], button[aria-pressed][title*="camera" i]',
+    videoButtonFallback: '.toolbox-button-camera, [class*="camera"], [class*="video"]',
+    shareButtonStop: '[aria-label*="Stop sharing" i][aria-pressed="true"]',
+    shareButtonStopAlt: '.toolbox-button[aria-pressed="true"][aria-label*="screen" i]',
+    shareButtonStart: '[aria-label*="Share your screen" i]',
+    shareButtonStartAlt: '[aria-label*="screen" i]:not([aria-pressed="true"])',
+    shareButtonData: '[data-testid*="desktop"], [data-testid*="screen"]',
+    shareButtonTitle: '[title*="screen" i]',
+    shareIconPath: 'svg path[d*="14.846"]',
+    shareButtonFallback: '.toolbox-button-screenshare, [class*="share"], [class*="desktop"]',
+    recordButton: 'button[data-testid*="recording"], button[aria-label*="record" i], button[title*="record" i]',
+    recordButtonAlt: 'button[aria-pressed][aria-label*="record" i]',
+    recordButtonDiv: 'div[role="button"][data-testid*="recording"], div[role="button"][aria-label*="record" i]',
+    recordButtonFallback: '.toolbox-button-record, button[class*="record"]',
+    moreActionsButton: '[aria-label*="More actions" i]',
+    moreActionsButtonAlt: '.toolbox-button-wth-dialog [role="button"]',
+    moreActionsButtonFallback: '.context-menu .toolbox-button',
+    submenuRecordButton: 'button[aria-label*="Start recording" i], button[aria-label*="recording" i]',
+    submenuRecordButtonDiv: 'div[role="button"][aria-label*="Start recording" i], div[role="button"][aria-label*="recording" i]',
+    submenuRecordButtonCss: '.css-m5fnqo-contextMenuItem[aria-label*="record" i]',
+    submenuRecordButtonClass: '[class*="contextMenuItem"][aria-label*="record" i]',
+    leaveButton: '[data-testid*="hangup"], [aria-label*="leave" i], [aria-label*="hang up" i], [title*="leave" i]',
+    leaveButtonAlt: 'button[aria-label*="end" i], button[title*="end" i]',
+    leaveButtonFallback: '.toolbox-button-hangup, [class*="hangup"], [class*="leave"]',
+    // Detection selectors
+    prejoin: '[data-testid*="prejoin"]',
+    jitsiClass: '[class*="jitsi"]',
+    jitsiConference: '#jitsiConference0',
+    pressedShareButton: 'button[aria-pressed="true"]',
+    toggledShareIcon: '.toolbox-icon.toggled svg path[d*="14.846"]',
+    toggledShareButton: '.toolbox-button .toggled svg path[d*="14.846"]'
   };
 
-  _waitForJitsiStore = () => {
-    // Use chrome.scripting to execute code in page context (bypasses CSP)
+  get platformId() {
+    return 'jitsi';
+  }
+
+  get hostnames() {
+    return ['meet.jit.si', 'jitsi'];
+  }
+
+  get mutationObserverConfig() {
+    return {
+      childList: true,
+      attributes: true,
+      attributeFilter: ['class', 'aria-pressed', 'data-testid', 'aria-label'],
+      attributeOldValue: true,
+      subtree: true
+    };
+  }
+
+  _initializeState() {
+    this._stateMessageListener = null;
+    this._storeCheckListener = null;
+  }
+
+  _onInitialize() {
+    // Start checking for Jitsi Redux store availability
+    this._waitForJitsiStore();
+  }
+
+  _onCleanup() {
+    if (this._stateMessageListener) {
+      window.removeEventListener('message', this._stateMessageListener);
+      this._stateMessageListener = null;
+    }
+
+    if (this._storeCheckListener) {
+      window.removeEventListener('message', this._storeCheckListener);
+      this._storeCheckListener = null;
+    }
+  }
+
+  _matchesHostname() {
+    // Jitsi has special detection logic
+    return this._detectJitsiMeet();
+  }
+
+  _detectJitsiMeet() {
+    const { SELECTORS } = JitsiObserver;
+    return window.location.href.includes('meet.jit.si') ||
+      window.location.href.includes('/jitsi/') ||
+      window.location.pathname.includes('jitsi') ||
+      document.title.toLowerCase().includes('jitsi') ||
+      document.querySelector(SELECTORS.prejoin) ||
+      document.querySelector(SELECTORS.jitsiClass) ||
+      document.querySelector(SELECTORS.jitsiConference) ||
+      window.APP || window.JitsiMeetJS;
+  }
+
+  _waitForJitsiStore() {
     chrome.runtime.sendMessage({
-      action: "executeInPageContext",
-      functionName: "checkStore"
+      action: 'executeInPageContext',
+      functionName: 'checkStore'
     });
 
-    // Listen for the response
     const messageListener = (event) => {
-      // console.log('Jitsi store check event:', event);
-      if (event.source !== window || !event.data) return
+      if (event.source !== window || !event.data) return;
       if (event.data.type !== 'JITSI_STORE_AVAILABLE') return;
 
       if (event.data.available) {
         console.log('Jitsi Redux store found in page context');
         window.removeEventListener('message', messageListener);
       } else {
-        // console.log('Still waiting for Jitsi Redux store...');
-        // Try again in 2 seconds
         setTimeout(() => this._waitForJitsiStore(), 2000);
       }
     };
@@ -62,138 +118,105 @@ class JitsiObserver {
       this._storeCheckListener = messageListener;
       window.addEventListener('message', messageListener);
     }
-  };
+  }
 
-  _detectJitsiMeet = () => {
-    // Check if this is a Jitsi Meet page
-    return window.location.href.includes('meet.jit.si') ||
-      window.location.href.includes('/jitsi/') ||
-      window.location.pathname.includes('jitsi') ||
-      document.title.toLowerCase().includes('jitsi') ||
-      document.querySelector('[data-testid*="prejoin"]') ||
-      document.querySelector('[class*="jitsi"]') ||
-      document.querySelector('#jitsiConference0') ||
-      window.APP || window.JitsiMeetJS;
-  };
-
-  _handleElementChange = (mutationsList) => {
-    this.updateJitsiStatus();
-  };
-
-  updateJitsiStatus = () => {
-    // Use script injection to access Jitsi's Redux state in page context
+  _detectStatus() {
+    // Request state from page context via background script
     this._getJitsiStateFromPage();
+  }
 
-    // Send meeting status if it has been updated, or if it's been 3 seconds since the last update
-    if (this._updateLoops >= 3) {
-      this.sendJitsiStatus();
-      this._updateLoops = 0;
-    } else {
-      this._updateLoops++;
-    }
-  };
-
-  _getJitsiStateFromPage = () => {
-    // Use chrome.scripting to execute code in page context (bypasses CSP)
+  _getJitsiStateFromPage() {
     chrome.runtime.sendMessage({
-      action: "executeInPageContext",
-      functionName: "getState"
+      action: 'executeInPageContext',
+      functionName: 'getState'
     });
 
-    // Set up listener for the response (if not already set)
     if (!this._stateMessageListener) {
       this._stateMessageListener = (event) => {
-        // console.log('Jitsi state update event:', event);
-        if (event.source !== window || !event.data) return
+        if (event.source !== window || !event.data) return;
         if (event.data.type !== 'JITSI_STATE_UPDATE') return;
 
         this._handleStateUpdate(event.data.status);
       };
       window.addEventListener('message', this._stateMessageListener);
     }
-  };
+  }
 
-  _handleStateUpdate = (statusFromState) => {
+  _handleStateUpdate(statusFromState) {
     let changed = false;
 
     if (statusFromState.hasData) {
-      // Update meeting status
       if (statusFromState.inCall !== undefined && this.isInMeeting !== statusFromState.inCall) {
         this.isInMeeting = statusFromState.inCall;
         changed = true;
       }
 
-      // Update mute status
       if (statusFromState.muted !== undefined && this.isMuted !== statusFromState.muted) {
         this.isMuted = statusFromState.muted;
         changed = true;
       }
 
-      // Update video status (note: videoMuted from state, but we track isVideoStarted)
       if (statusFromState.videoMuted !== undefined && this.isVideoStarted !== !statusFromState.videoMuted) {
         this.isVideoStarted = !statusFromState.videoMuted;
         changed = true;
       }
 
-      // Update recording status
       if (statusFromState.recording !== undefined && this.isRecordStarted !== statusFromState.recording) {
         this.isRecordStarted = statusFromState.recording;
         changed = true;
       }
     }
 
-    // Update screen sharing status via DOM detection (since Redux doesn't have this info)
+    // Detect screen sharing via DOM (Redux doesn't have this info)
     const currentShareStatus = this._detectScreenSharing();
     if (this.isShareStarted !== currentShareStatus) {
       this.isShareStarted = currentShareStatus;
       changed = true;
     }
 
-    // Trigger update if something changed
     if (changed) {
       this._updateLoops = 4; // Force send on next cycle
     }
-  };
+  }
 
-  _detectScreenSharing = () => {
+  _detectScreenSharing() {
+    const doc = this._getDocument();
+    const { SELECTORS } = JitsiObserver;
+
     try {
-      // Look for share button with aria-pressed="true" (language independent)
-      // The share icon has a unique SVG path that starts with "14.846"
-      const pressedShareButton = document.querySelector('button[aria-pressed="true"]');
+      const pressedShareButton = doc.querySelector(SELECTORS.pressedShareButton);
       if (pressedShareButton) {
-        const shareIcon = pressedShareButton.querySelector('svg path[d*="14.846"]');
+        const shareIcon = pressedShareButton.querySelector(SELECTORS.shareIconPath);
         if (shareIcon) {
           return true;
         }
       }
 
-      // Alternative: look for toolbox button with "toggled" class and share icon
-      const toggledShareButton = document.querySelector('.toolbox-icon.toggled svg path[d*="14.846"]') ||
-        document.querySelector('.toolbox-button .toggled svg path[d*="14.846"]');
+      const toggledShareButton = doc.querySelector(SELECTORS.toggledShareIcon) ||
+        doc.querySelector(SELECTORS.toggledShareButton);
 
       return !!toggledShareButton;
     } catch (e) {
       console.log('Could not detect screen sharing status:', e);
       return false;
     }
-  };
+  }
 
-  toggleMute = () => {
-    // Use chrome.scripting to execute code in page context (bypasses CSP)
+  _performToggleMute() {
     chrome.runtime.sendMessage({
-      action: "executeInPageContext",
-      functionName: "toggleMute"
+      action: 'executeInPageContext',
+      functionName: 'toggleMute'
     });
 
-    // Listen for result and fallback to button click if needed
     const resultListener = (event) => {
       if (event.source !== window || event.data.type !== 'JITSI_ACTION_RESULT' || event.data.action !== 'mute') return;
 
       if (!event.data.success) {
-        // API failed, try button click
-        const muteButton = document.querySelector('[data-testid*="microphone"], [aria-label*="microphone" i], [aria-label*="mute" i], [title*="mute" i]') ||
-          document.querySelector('button[aria-pressed][aria-label*="audio" i], button[aria-pressed][title*="audio" i]') ||
-          document.querySelector('.toolbox-button-mute, [class*="mute"], [class*="microphone"]');
+        const doc = this._getDocument();
+        const { SELECTORS } = JitsiObserver;
+        const muteButton = doc.querySelector(SELECTORS.muteButton) ||
+          doc.querySelector(SELECTORS.muteButtonAlt) ||
+          doc.querySelector(SELECTORS.muteButtonFallback);
 
         if (muteButton) {
           console.log('Clicking Jitsi mute button');
@@ -207,24 +230,23 @@ class JitsiObserver {
     };
 
     window.addEventListener('message', resultListener);
-  };
+  }
 
-  toggleVideo = () => {
-    // Use chrome.scripting to execute code in page context (bypasses CSP)
+  _performToggleVideo() {
     chrome.runtime.sendMessage({
-      action: "executeInPageContext",
-      functionName: "toggleVideo"
+      action: 'executeInPageContext',
+      functionName: 'toggleVideo'
     });
 
-    // Listen for result and fallback to button click if needed
     const resultListener = (event) => {
       if (event.source !== window || event.data.type !== 'JITSI_ACTION_RESULT' || event.data.action !== 'video') return;
 
       if (!event.data.success) {
-        // API failed, try button click
-        const videoButton = document.querySelector('[data-testid*="camera"], [aria-label*="camera" i], [aria-label*="video" i], [title*="video" i]') ||
-          document.querySelector('button[aria-pressed][aria-label*="camera" i], button[aria-pressed][title*="camera" i]') ||
-          document.querySelector('.toolbox-button-camera, [class*="camera"], [class*="video"]');
+        const doc = this._getDocument();
+        const { SELECTORS } = JitsiObserver;
+        const videoButton = doc.querySelector(SELECTORS.videoButton) ||
+          doc.querySelector(SELECTORS.videoButtonAlt) ||
+          doc.querySelector(SELECTORS.videoButtonFallback);
 
         if (videoButton) {
           console.log('Clicking Jitsi video button');
@@ -238,46 +260,44 @@ class JitsiObserver {
     };
 
     window.addEventListener('message', resultListener);
-  };
+  }
 
-  toggleShare = () => {
+  _performToggleShare() {
+    const doc = this._getDocument();
+    const { SELECTORS } = JitsiObserver;
+
     try {
-      // Look for screen share button - both start and stop sharing buttons
-      // The share icon has unique SVG path that starts with "14.846"
       const shareButton =
-        // Stop sharing button (aria-pressed="true", "Stop sharing your screen")
-        document.querySelector('[aria-label*="Stop sharing" i][aria-pressed="true"]') ||
-        document.querySelector('.toolbox-button[aria-pressed="true"][aria-label*="screen" i]') ||
-        // Start sharing button (various patterns)
-        document.querySelector('[aria-label*="Share your screen" i]') ||
-        document.querySelector('[aria-label*="screen" i]:not([aria-pressed="true"])') ||
-        document.querySelector('[data-testid*="desktop"], [data-testid*="screen"]') ||
-        document.querySelector('[title*="screen" i]') ||
-        // Generic selectors with unique SVG path
-        document.querySelector('button svg path[d*="14.846"]')?.closest('button') ||
-        document.querySelector('.toolbox-button svg path[d*="14.846"]')?.closest('.toolbox-button') ||
-        // Class-based fallbacks
-        document.querySelector('.toolbox-button-screenshare, [class*="share"], [class*="desktop"]');
+        doc.querySelector(SELECTORS.shareButtonStop) ||
+        doc.querySelector(SELECTORS.shareButtonStopAlt) ||
+        doc.querySelector(SELECTORS.shareButtonStart) ||
+        doc.querySelector(SELECTORS.shareButtonStartAlt) ||
+        doc.querySelector(SELECTORS.shareButtonData) ||
+        doc.querySelector(SELECTORS.shareButtonTitle) ||
+        doc.querySelector(SELECTORS.shareIconPath)?.closest('button') ||
+        doc.querySelector(SELECTORS.shareIconPath)?.closest('.toolbox-button') ||
+        doc.querySelector(SELECTORS.shareButtonFallback);
 
       if (shareButton) {
         console.log('Clicking screen share button:', shareButton.getAttribute('aria-label'));
         shareButton.click();
-        return;
       } else {
         console.log('Unable to find screen share button');
       }
     } catch (e) {
       console.log('Failed to toggle screen share:', e);
     }
-  };
+  }
 
-  toggleRecord = () => {
-    // For recording, we need to handle the submenu approach
-    // First try to find a direct record button - be specific about interactive elements
-    let recordButton = document.querySelector('button[data-testid*="recording"], button[aria-label*="record" i], button[title*="record" i]') ||
-      document.querySelector('button[aria-pressed][aria-label*="record" i]') ||
-      document.querySelector('div[role="button"][data-testid*="recording"], div[role="button"][aria-label*="record" i]') ||
-      document.querySelector('.toolbox-button-record, button[class*="record"]');
+  _performToggleRecord() {
+    const doc = this._getDocument();
+    const { SELECTORS } = JitsiObserver;
+
+    // Try direct record button first
+    let recordButton = doc.querySelector(SELECTORS.recordButton) ||
+      doc.querySelector(SELECTORS.recordButtonAlt) ||
+      doc.querySelector(SELECTORS.recordButtonDiv) ||
+      doc.querySelector(SELECTORS.recordButtonFallback);
 
     if (recordButton) {
       console.log('Clicking direct Jitsi record button');
@@ -285,24 +305,22 @@ class JitsiObserver {
       return;
     }
 
-    // If no direct button found, try the submenu approach
+    // Try submenu approach
     console.log('Direct record button not found, trying submenu approach');
 
-    // First, find and click the "More actions" button
-    const moreActionsButton = document.querySelector('[aria-label*="More actions" i]') ||
-      document.querySelector('.toolbox-button-wth-dialog [role="button"]') ||
-      document.querySelector('.context-menu .toolbox-button');
+    const moreActionsButton = doc.querySelector(SELECTORS.moreActionsButton) ||
+      doc.querySelector(SELECTORS.moreActionsButtonAlt) ||
+      doc.querySelector(SELECTORS.moreActionsButtonFallback);
 
     if (moreActionsButton) {
       console.log('Clicking More actions button');
       moreActionsButton.click();
 
-      // Wait a moment for the menu to appear, then look for the record button
       setTimeout(() => {
-        const submenuRecordButton = document.querySelector('button[aria-label*="Start recording" i], button[aria-label*="recording" i]') ||
-          document.querySelector('div[role="button"][aria-label*="Start recording" i], div[role="button"][aria-label*="recording" i]') ||
-          document.querySelector('.css-m5fnqo-contextMenuItem[aria-label*="record" i]') ||
-          document.querySelector('[class*="contextMenuItem"][aria-label*="record" i]');
+        const submenuRecordButton = doc.querySelector(SELECTORS.submenuRecordButton) ||
+          doc.querySelector(SELECTORS.submenuRecordButtonDiv) ||
+          doc.querySelector(SELECTORS.submenuRecordButtonCss) ||
+          doc.querySelector(SELECTORS.submenuRecordButtonClass);
 
         if (submenuRecordButton) {
           console.log('Clicking submenu record button');
@@ -310,28 +328,27 @@ class JitsiObserver {
         } else {
           console.log('Unable to find record button in submenu');
         }
-      }, 100); // Small delay to allow menu to appear
+      }, 100);
     } else {
       console.log('Unable to find More actions button or record button');
     }
-  };
+  }
 
-  leaveCall = () => {
-    // Use chrome.scripting to execute code in page context (bypasses CSP)
+  _performLeaveCall() {
     chrome.runtime.sendMessage({
-      action: "executeInPageContext",
-      functionName: "leaveCall"
+      action: 'executeInPageContext',
+      functionName: 'leaveCall'
     });
 
-    // Listen for result and fallback to button click if needed
     const resultListener = (event) => {
       if (event.source !== window || event.data.type !== 'JITSI_ACTION_RESULT' || event.data.action !== 'leave') return;
 
       if (!event.data.success) {
-        // API failed, try button click
-        const leaveButton = document.querySelector('[data-testid*="hangup"], [aria-label*="leave" i], [aria-label*="hang up" i], [title*="leave" i]') ||
-          document.querySelector('button[aria-label*="end" i], button[title*="end" i]') ||
-          document.querySelector('.toolbox-button-hangup, [class*="hangup"], [class*="leave"]');
+        const doc = this._getDocument();
+        const { SELECTORS } = JitsiObserver;
+        const leaveButton = doc.querySelector(SELECTORS.leaveButton) ||
+          doc.querySelector(SELECTORS.leaveButtonAlt) ||
+          doc.querySelector(SELECTORS.leaveButtonFallback);
 
         if (leaveButton) {
           console.log('Clicking Jitsi leave button');
@@ -345,46 +362,17 @@ class JitsiObserver {
     };
 
     window.addEventListener('message', resultListener);
-  };
+  }
 
-  sendJitsiStatus = () => {
-    if (!this.isInMeeting) {
-      return;
-    }
-    const message = {
-      'source': 'browser-extension-plugin',
-      'action': 'update-status',
-      'status': this.isInMeeting ? 'call' : 'closed',
-      'mute': this.isMuted ? 'muted' : 'unmuted',
-      'video': this.isVideoStarted ? 'started' : 'stopped',
-      'share': this.isShareStarted ? 'started' : 'stopped',
-      'record': this.isRecordStarted ? 'started' : 'stopped',
-      'control': 'jitsi',
-    };
-    //console.log('Jitsi status:', message);
-    chrome.runtime.sendMessage({ action: "updateMuteDeckStatus", message: message });
-  };
+  // Override to skip throttling - Jitsi uses async state updates
+  _updateStatusWrapper = () => {
+    this._detectStatus();
 
-  // Cleanup method
-  cleanup = () => {
-    if (this._timer) {
-      clearInterval(this._timer);
-      this._timer = null;
-    }
-
-    if (this._observer) {
-      this._observer.disconnect();
-      this._observer = null;
-    }
-
-    if (this._stateMessageListener) {
-      window.removeEventListener('message', this._stateMessageListener);
-      this._stateMessageListener = null;
-    }
-
-    if (this._storeCheckListener) {
-      window.removeEventListener('message', this._storeCheckListener);
-      this._storeCheckListener = null;
+    if (this._updateLoops >= this.throttleCount) {
+      this.sendStatus();
+      this._updateLoops = 0;
+    } else {
+      this._updateLoops++;
     }
   };
 }

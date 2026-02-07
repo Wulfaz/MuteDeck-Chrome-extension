@@ -14,6 +14,8 @@
    "content_scripts": [
       {
          "js": [
+            "observers/observerUtils.js",
+            "observers/BaseObserver.js",
             "observers/googleMeetObserver.js",
             "observers/zoomObserver.js",
             "observers/teamsObserver.js",
