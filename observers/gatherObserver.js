@@ -16,7 +16,8 @@ class GatherObserver extends BaseObserver {
     recordVideoCheckbox: 'input[type="checkbox"][data-testid="Record video-checkbox"]',
     recordTranscriptCheckbox: 'input[type="checkbox"][data-testid="Record AI meeting notes-checkbox"]',
     recordConfirmButton: 'button[class="_1dnchzy0 _1dnchzy9 _1dnchzy1 _1dnchzyc"]',
-    stopRecordConfirmButton: 'button[class="_1dnchzy0 _1dnchzy9 _1dnchzy3 _1dnchzyc"]'
+    stopRecordConfirmButton: 'button[class="_1dnchzy0 _1dnchzy9 _1dnchzy3 _1dnchzyc"]',
+    nearbyButton: 'button[data-onboarding-task-id="NearbyChat"]'
   };
 
   get platformId() {
@@ -57,10 +58,10 @@ class GatherObserver extends BaseObserver {
     const doc = this._getDocument();
     const { SELECTORS } = GatherObserver;
 
-    // Detect meeting by share button presence
-    const shareButton = doc.querySelector(SELECTORS.shareButton);
+    // Detect meeting by nearby chat button non presence
+    const nearbyButton = doc.querySelector(SELECTORS.nearbyButton);
 
-    if (shareButton) {
+    if (!nearbyButton) {
       this.isInMeeting = true;
 
       // Check for external meeting popup
@@ -98,7 +99,8 @@ class GatherObserver extends BaseObserver {
       }
 
       // Detect share state by class on share button
-      const shareClass = shareButton.getAttribute('class') || '';
+      const shareButton = doc.querySelector(SELECTORS.shareButton);
+      const shareClass = shareButton ? shareButton.getAttribute('class') || '' : '';
       this.isShareStarted = shareClass.includes(SELECTORS.shareActiveClass);
     } else {
       this.isInMeeting = false;
