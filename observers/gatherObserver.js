@@ -58,17 +58,17 @@ class GatherObserver extends BaseObserver {
     const doc = this._getDocument();
     const { SELECTORS } = GatherObserver;
 
-    // Detect meeting by nearby chat button non presence
+    // Detect meeting by mic button presence and not nearby chat button
+    const micButton = doc.querySelector(SELECTORS.micButton);
     const nearbyButton = doc.querySelector(SELECTORS.nearbyButton);
 
-    if (!nearbyButton) {
+    if (micButton && !nearbyButton) {
       this.isInMeeting = true;
 
       // Check for external meeting popup
       this.isInExternalMeeting = ObserverUtils.elementExists(doc, SELECTORS.externalMeetingPopup);
 
       // Detect mute state
-      const micButton = doc.querySelector(SELECTORS.micButton);
       if (micButton) {
         const testId = micButton.getAttribute('data-testid') || '';
         if (testId.includes('toggle-microphone-off-button')) {
