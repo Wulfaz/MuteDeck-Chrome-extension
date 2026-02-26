@@ -1,303 +1,178 @@
 
-class StreamyardObserver {
-  constructor() {
-    this._timer = null;
-    this._observer = null;
-    this._updateLoops = 0;
-
-    this.isInMeeting = false;
-    this.isMuted = false;
-    this.isVideoStarted = false;
-    this.isShareStarted = false;
-    this.isRecordStarted = false;
+class StreamyardObserver extends BaseObserver {
+  static SELECTORS = {
+    muteButton: 'button[aria-label="Mute microphone"]',
+    unmuteButton: 'button[aria-label="Unmute microphone"]',
+    stopCamText: 'Stop cam',
+    startCamText: 'Start cam',
+    stopShareButton: 'button[aria-label^="Stop sharing"]',
+    startShareButton: 'button[aria-label="Present"]',
+    endRecordingButton: 'button[aria-label="End recording"]',
+    endStreamButton: 'button[aria-label="End stream"]',
+    recordText: 'Record',
+    leaveButton: 'a[aria-label="Leave studio"]',
+    leaveText: 'Leave studio',
+    goLiveOverlay: 'div[class^="GoLiveOverlay"]',
+    endBroadcastOverlay: 'div[class^="EndBroadcastOverlay"]'
   };
 
-  initialize = () => {
-    // detect whether streamyard.com is the hostname of the page, otherwise do not initialize
-    if (window.location.hostname !== 'streamyard.com') {
-      console.log('Not on Streamyard page, not initializing Streamyard');
-      return;
-    }
+  get platformId() {
+    return 'streamyard';
+  }
 
-    console.log('Initializing StreamyardObserver');
-    this._observer = new MutationObserver(this._handleElementChange);
-    this._observer.observe(document.body, {
-      childList: false,
-      attributes: true,
-      attributeFilter: ["class"],
-      attributeOldValue: true,
-      subtree: true,
-    });
+  get hostnames() {
+    return 'streamyard.com';
+  }
 
-    this._timer = setInterval(this.updateStreamyardStatus, 1000);
-  };
+  _detectStatus() {
+    const doc = this._getDocument();
+    const { SELECTORS } = StreamyardObserver;
 
-  _handleElementChange = (mutationsList) => {
-    this.updateStreamyardStatus();
-  };
+    // Detect meeting and mute state from mute/unmute button
+    const muteButton = doc.querySelector(SELECTORS.muteButton);
+    const unmuteButton = doc.querySelector(SELECTORS.unmuteButton);
 
-  updateStreamyardStatus = () => {
-    let changed = false;
-
-    // find the mute button
-    let buttonMute = document.querySelector('button[aria-label="Mute microphone"]');
-    if (buttonMute) {
-      if (this.isMuted) {
-        changed = true;
-      }
-      this.isMuted = false;
+    if (muteButton) {
       this.isInMeeting = true;
-    }
-    else {
-      // find the unmute button
-      let buttonUnmute = document.querySelector('button[aria-label="Unmute microphone"]');
-      if (buttonUnmute) {
-        if (!this.isMuted) {
-          changed = true;
-        }
-        this.isMuted = true;
-        this.isInMeeting = true;
-      } else {
-        if (this.isInMeeting) {
-          changed = true;
-        }
-        this.isInMeeting = false;
-      }
+      this.isMuted = false;
+    } else if (unmuteButton) {
+      this.isInMeeting = true;
+      this.isMuted = true;
+    } else {
+      this.isInMeeting = false;
     }
 
     if (this.isInMeeting) {
-      // find the camera button in this html based on the "Stop cam" text:
-      let stopCamSpan = Array.from(document.querySelectorAll('button span')).find(span => span.textContent === 'Stop cam');
-      if (stopCamSpan) {
-        if (!this.isVideoStarted) {
-          changed = true;
-        }
-        this.isVideoStarted = true;
-      }
-      else {
-        if (this.isVideoStarted) {
-          changed = true;
-        }
-        this.isVideoStarted = false;
-      }
+      // Detect video state by looking for "Stop cam" text
+      const stopCamSpan = ObserverUtils.findByText(doc, 'button span', SELECTORS.stopCamText);
+      this.isVideoStarted = stopCamSpan !== null;
 
-      // find the stop sharing button
-      let buttonStopSharing = document.querySelector('button[aria-label^="Stop sharing"]');
-      if (buttonStopSharing) {
-        if (!this.isShareStarted) {
-          changed = true;
-        }
-        this.isShareStarted = true;
-      }
-      else {
-        if (this.isShareStarted) {
-          changed = true;
-        }
-        this.isShareStarted = false;
-      }
+      // Detect share state
+      this.isShareStarted = ObserverUtils.elementExists(doc, SELECTORS.stopShareButton);
 
-      // find the end record button
-      let buttonEndRecording = document.querySelector('button[aria-label="End recording"]');
-      if (buttonEndRecording) {
-        if (!this.isRecordStarted) {
-          changed = true;
-        }
-        this.isRecordStarted = true;
-      }
-      else {
-        // try the "End strean" button
-        let buttonEndStream = document.querySelector('button[aria-label="End stream"]');
-        if (buttonEndStream) {
-          if (!this.isRecordStarted) {
-            changed = true;
-          }
-          this.isRecordStarted = true;
-        }
-        else {
-          if (this.isRecordStarted) {
-            changed = true;
-          }
-          this.isRecordStarted = false;
-        }
-      }
-    } // end if this.isInMeeting
+      // Detect recording state
+      this.isRecordStarted = ObserverUtils.elementExists(doc, SELECTORS.endRecordingButton) ||
+        ObserverUtils.elementExists(doc, SELECTORS.endStreamButton);
+    }
+  }
 
-    // send meeting status if it has been updated, or if it's been 1 second (250ms * 4) since the last update
-    if (changed || this._updateLoops >= 3) {
-      // force sendStreamyardStatus when leaving a meeting
-      this.sendStreamyardStatus(changed && !this.isInMeeting); // 'was in meeting but no more' -> force send
-      this._updateLoops = 0;
+  _performToggleMute() {
+    const doc = this._getDocument();
+    const { SELECTORS } = StreamyardObserver;
+
+    if (!ObserverUtils.clickButton(doc, SELECTORS.muteButton, 'mute')) {
+      ObserverUtils.clickButton(doc, SELECTORS.unmuteButton, 'unmute');
+    }
+  }
+
+  _performToggleVideo() {
+    const doc = this._getDocument();
+    const { SELECTORS } = StreamyardObserver;
+    const textToFind = this.isVideoStarted ? SELECTORS.stopCamText : SELECTORS.startCamText;
+
+    const camSpan = ObserverUtils.findByText(doc, 'button span', textToFind);
+    if (camSpan) {
+      const button = camSpan.closest('button');
+      button.click();
+      console.log(`Clicking ${textToFind} button`);
     } else {
-      this._updateLoops++;
+      console.log(`Unable to find ${textToFind} button`);
     }
   }
 
-  /**
-   * Actions
-   */
+  _performToggleShare() {
+    const doc = this._getDocument();
+    const { SELECTORS } = StreamyardObserver;
 
-  toggleMute = () => {
-    // find the mute button
-    let buttonMute = document.querySelector('button[aria-label="Mute microphone"]');
-    if (buttonMute) {
-      buttonMute.click();
-    }
-    else {
-      // find the unmute button
-      let buttonUnmute = document.querySelector('button[aria-label="Unmute microphone"]');
-      if (buttonUnmute) {
-        buttonUnmute.click();
-      }
-      else {
-        console.log('Unable to find mute/unmute button');
-      }
-    }
-  }
-
-  toggleVideo = () => {
-    if (this.isVideoStarted) {
-      let stopCamSpan = Array.from(document.querySelectorAll('button span')).find(span => span.textContent === 'Stop cam');
-      if (stopCamSpan) {
-        let buttonElement = stopCamSpan.closest('button');
-        buttonElement.click();
-      }
-      else {
-        console.log('Unable to find stop video button');
-      }
-    }
-    else {
-      let startCamSpan = Array.from(document.querySelectorAll('button span')).find(span => span.textContent === 'Start cam');
-      if (startCamSpan) {
-        let buttonElement = startCamSpan.closest('button');
-        buttonElement.click();
-      }
-      else {
-        console.log('Unable to find start video button');
-      }
-    }
-  }
-
-  toggleShare = () => {
     if (this.isShareStarted) {
-      let buttonStopSharing = document.querySelector('button[aria-label^="Stop sharing"]');
-      if (buttonStopSharing) {
-        buttonStopSharing.click();
-        console.log('Clicked stop sharing button');
-      }
+      ObserverUtils.clickButton(doc, SELECTORS.stopShareButton, 'stop sharing');
+    } else {
+      ObserverUtils.clickButton(doc, SELECTORS.startShareButton, 'present');
     }
-    else {
-      let buttonShare = document.querySelector('button[aria-label="Present"]');
-      buttonShare.click();
-    }
-  };
+  }
 
-  toggleRecord = () => {
+  _performToggleRecord() {
+    const doc = this._getDocument();
+    const { SELECTORS } = StreamyardObserver;
+
     if (this.isRecordStarted) {
-      let buttonEndRecording = document.querySelector('button[aria-label="End recording"]');
-      if (buttonEndRecording) {
-        buttonEndRecording.click();
-        setTimeout(this._pressEndRecordConfirmationButton, 250);
+      // Click end recording or end stream button
+      if (!ObserverUtils.clickButton(doc, SELECTORS.endRecordingButton, 'end recording')) {
+        ObserverUtils.clickButton(doc, SELECTORS.endStreamButton, 'end stream');
       }
-      else {
-        // try the "End strean" button
-        let buttonEndStream = document.querySelector('button[aria-label="End stream"]');
-        if (buttonEndStream) {
-          buttonEndStream.click();
-          setTimeout(this._pressEndRecordConfirmationButton, 250);
-        }
-      }
-    } // end if this.isRecordStarted
-    else {
-      let recordSpan = Array.from(document.querySelectorAll('button span')).find(span => span.textContent === 'Record');
+      setTimeout(() => this._pressEndRecordConfirmationButton(), 250);
+    } else {
+      // Find and click Record button by text
+      const recordSpan = ObserverUtils.findByText(doc, 'button span', SELECTORS.recordText);
       if (recordSpan) {
-        let buttonElement = recordSpan.closest('button');
-        buttonElement.click();
-        setTimeout(this._pressRecordConfirmationButton, 250);
-      }
-      else {
+        const button = recordSpan.closest('button');
+        button.click();
+        console.log('Clicking record button');
+        setTimeout(() => this._pressRecordConfirmationButton(), 250);
+      } else {
         console.log('Unable to find record button');
       }
     }
-  };
-
-  _pressRecordConfirmationButton = () => {
-    // Find the outer div element starting with "GoLiveOverlay"
-    let outerDiv = document.querySelector('div[class^="GoLiveOverlay"]');
-
-    // Check if the outer div is found
-    if (outerDiv) {
-      // Search for the button element with the text "Record"
-      let recordSpan = Array.from(outerDiv.querySelectorAll('button span')).find(button => button.textContent.trim() === 'Record');
-
-      // Check if the button element is found
-      if (recordSpan) {
-        let recordButton = recordSpan.closest('button');
-        recordButton.click();
-        console.log('Clicking record button');
-      } else {
-        console.log('Button with text "Record" not found within the outer div.');
-      }
-    } else {
-      console.log('Outer div starting with "GoLiveOverlay" not found.');
-    }
-  };
-
-  _pressEndRecordConfirmationButton = () => {
-    // Find the outer div element starting with "GoLiveOverlay"
-    let outerDiv = document.querySelector('div[class^="EndBroadcastOverlay"]');
-
-    // Check if the outer div is found
-    if (outerDiv) {
-      // Search for the button element with the text "End recording" or "End stream"
-      let recordSpan = Array.from(outerDiv.querySelectorAll('button span')).find(button => button.textContent.trim() === 'End recording' || button.textContent.trim() === 'End stream');
-
-      // Check if the button element is found
-      if (recordSpan) {
-        let recordButton = recordSpan.closest('button');
-        recordButton.click();
-        console.log('Clicking end record/stream button');
-      } else {
-        console.log('Button with text "End [recording|stream]" not found within the outer div.');
-      }
-    } else {
-      console.log('Outer div starting with "EndBroadcastOverlay" not found.');
-    }
-  };
-
-  leaveCall = () => {
-    let buttonLeave = document.querySelector('a[aria-label="Leave studio"]');
-    buttonLeave.click();
-    setTimeout(this._pressLeaveConfirmationButton, 250);
   }
 
-  _pressLeaveConfirmationButton = () => {
-    let leaveSpan = Array.from(document.querySelectorAll('a span')).find(button => button.textContent.trim() === 'Leave studio');
-    // Check if the button element is found
-    if (leaveSpan) {
-      let leaveButton = leaveSpan.closest('a');
-      leaveButton.click();
-      console.log('Clicking leave link');
-    } else {
-      console.log('Button with text "Leave studio" not found within the outer div.');
-    }
-  };
+  _pressRecordConfirmationButton() {
+    const doc = this._getDocument();
+    const { SELECTORS } = StreamyardObserver;
 
-  // use param force to force send the status (after leaving a meeting for example)
-  sendStreamyardStatus = (force = false) => {
-    if (!force && !this.isInMeeting) {
-      return;
+    const outerDiv = doc.querySelector(SELECTORS.goLiveOverlay);
+    if (outerDiv) {
+      const recordSpan = ObserverUtils.findByText(outerDiv, 'button span', SELECTORS.recordText);
+      if (recordSpan) {
+        const recordButton = recordSpan.closest('button');
+        recordButton.click();
+        console.log('Clicking record confirmation button');
+      } else {
+        console.log('Button with text "Record" not found within the overlay');
+      }
+    } else {
+      console.log('GoLiveOverlay not found');
     }
-    const message = {
-      'source': 'browser-extension-plugin',
-      'action': 'update-status',
-      'status': this.isInMeeting ? 'call' : 'closed',
-      'mute': this.isMuted ? 'muted' : 'unmuted',
-      'video': this.isVideoStarted ? 'started' : 'stopped',
-      'share': this.isShareStarted ? 'started' : 'stopped',
-      'record': this.isRecordStarted ? 'started' : 'stopped',
-      'control': 'streamyard',
-    };
-    //console.log(message);
-    chrome.runtime.sendMessage({ action: "updateMuteDeckStatus", message: message });
+  }
+
+  _pressEndRecordConfirmationButton() {
+    const doc = this._getDocument();
+    const { SELECTORS } = StreamyardObserver;
+
+    const outerDiv = doc.querySelector(SELECTORS.endBroadcastOverlay);
+    if (outerDiv) {
+      const endSpan = Array.from(outerDiv.querySelectorAll('button span'))
+        .find(span => span.textContent.trim() === 'End recording' || span.textContent.trim() === 'End stream');
+      if (endSpan) {
+        const button = endSpan.closest('button');
+        button.click();
+        console.log('Clicking end record/stream confirmation button');
+      } else {
+        console.log('End recording/stream button not found within the overlay');
+      }
+    } else {
+      console.log('EndBroadcastOverlay not found');
+    }
+  }
+
+  _performLeaveCall() {
+    const doc = this._getDocument();
+    const { SELECTORS } = StreamyardObserver;
+
+    ObserverUtils.clickButton(doc, SELECTORS.leaveButton, 'leave studio');
+    setTimeout(() => this._pressLeaveConfirmationButton(), 250);
+  }
+
+  _pressLeaveConfirmationButton() {
+    const doc = this._getDocument();
+    const { SELECTORS } = StreamyardObserver;
+
+    const leaveSpan = ObserverUtils.findByText(doc, 'a span', SELECTORS.leaveText);
+    if (leaveSpan) {
+      const leaveLink = leaveSpan.closest('a');
+      leaveLink.click();
+      console.log('Clicking leave confirmation link');
+    } else {
+      console.log('Leave studio confirmation not found');
+    }
   }
 }
